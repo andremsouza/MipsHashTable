@@ -70,17 +70,19 @@ insert:
 	add $s1, $zero, $v0
 	
 	#funcao hash
-	li $t1, 16
-	div $s1, $t1
-	la $a0, hash
+	li $t0, 16
+	div $s1, $t0
 	mfhi $t0
 	mul $t0, $t0, 4
-	add $a0, $a0, $t0
-	add $a1, $zero, $s1
-	
-	jal list_insert
+	la $t1, hash
+	add $t0, $t0, $t1 # $t0 == endereco de hash(i)
+	lw $a0, 0($t0) # $a0 == conteudo de hash(i)
+	add $a1, $zero, $s1 # $ai == numero inserido
 	
 	beq $s1, -1, menu
+	bltz $s1, izless
+	jal list_insert
+izless:
 	j insert
 remove:
 	#Imprime str_dig
