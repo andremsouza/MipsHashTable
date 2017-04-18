@@ -95,7 +95,20 @@ remove:
 	syscall
 	add $s1, $zero, $v0
 	
+	#funcao hash
+	li $t0, 16
+	div $s1, $t0
+	mfhi $t0
+	mul $t0, $t0, 4
+	la $t1, hash
+	add $t0, $t0, $t1 # $t0 == endereco de hash(i)
+	lw $a0, 0($t0) # $a0 == conteudo de hash(i)
+	add $a1, $zero, $s1 # $ai == numero inserido
+	
 	beq $s1, -1, menu
+	bltz $s1, rzless
+	jal list_remove
+rzless:
 	j remove
 search:
 	#Imprime str_dig
@@ -186,3 +199,22 @@ ilist_empty_end:
 	addi $sp, $sp, 12
 	
 	jr $ra
+
+list_remove:
+	#guarda $a0, $a1 e $ra na stack
+	addi $sp, $sp, -12
+	sw $a1, 8($sp) # valor inteiro
+	sw $a0, 4($sp) # endereco da lista
+	sw $ra, 0($sp)
+	
+	li $t0, 0
+	lw $t1, 4($a0)
+lr_loop:
+	bge $t0, $t1, lr_end
+	lw $t2, 0($t1)
+	
+	lw $t1, 4($t1)
+	add $t0, $t0, 12
+	
+	j lr_loop
+lr_end:
