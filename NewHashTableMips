@@ -234,7 +234,7 @@ remove:
 	jal list_remove
 	
 rzless:
-	li $v0, 4
+	li $v0, 1
 	la $a0, str_remno
 	syscall
 	j read_numb
@@ -328,14 +328,14 @@ search_finish:	# enter
 	j read_numb
 
 search_ok:
-	li $v0, 4
-	la $a0, str_busok
+	li $v0, 1
+	add $a0, $zero, $s2
 	syscall
 	j search_finish
 	
 search_no:
-	li $v0, 4
-	la $a0, str_busno
+	li $v0, 1
+	add $a0, $zero, -1
 	syscall
 	j search_finish
 			
@@ -346,7 +346,6 @@ hash_search:		# retorna $v0, se o número nao foi encontrado, $v0 = -1, caso cont
 	sw $a1, 8($sp)	# ponteiro da hash
 
 	# usa a funcao de espalhamento (inteiro % 16) para encontrar o index do vetor
-	## PODEMOS FAZER UMA FUNÇÃO SEPARADA DISSO, USAMOS ISTO 2X
 	lw $s1, 4($sp)
 	
 	li $t0, 16
