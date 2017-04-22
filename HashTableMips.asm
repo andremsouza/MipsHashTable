@@ -6,7 +6,17 @@
 #	Victor Roberti Camolesi - 9791239
 #	Vitor Trevelin Xavier da Silva - 9791285
 
-# Programa em assembly Mips que implementa uma tabela hash com listas duplamente encadeadas
+# Programa em assembly Mips que implementa uma tabela hash com listas dinamicas duplamente encadeadas.
+# Cada lista admite valores inteiros positivos, de ate 32 bits(signed).
+# O programa implementa um menu, em que o usuario pode escolher as operacoes desejadas.
+# Ao entrar em cada operacao, exceto as operacoes "print" e "exit", serao solicitados valores ate que seja recebido o valor de saida de operacao "-1".
+
+# Operacoes implementadas:
+# 	Insert:	Insere um valor na tabela hash. A insercao em cada lista e ordenada.
+#	Remove:	Remove um valor da tabela hash. O valor sera procurado em sua devida posicao da tabela, determinada pela funcao hash.
+#	Search:	Procura um valor na tabela hash. Retorna o indice da tabela se encontrado, ou "-1".
+#	Print:	Imprime a tabela hash, com os indices na primeira coluna, e os valores de cada lista na segunda coluna.
+#	Exit:	Finaliza o programa.
 
 # Estrutura de uma lista:
 # 0($lista) = numero de elementos da lista
@@ -30,16 +40,17 @@ str_remno:	.asciiz "Valor nao encontrado, impossivel remover\n"
 str_busok:	.asciiz "Valor encontrado"
 str_busno:	.asciiz "Valor nao encontrado"
 str_negno:	.asciiz "Valor negativo: nao inserido\n"
-espaco:	.asciiz " "
-enter:	.asciiz "\n"
-tab:	.asciiz "\t"
+espaco:		.asciiz " "
+enter:		.asciiz "\n"
+tab:		.asciiz "\t"
 
 	.text
 	.globl main
+
 main:
-	# criar as 16 listas para a tabela hash
 	li $t0, 0
-l_loop:
+
+l_loop: # criar as 16 listas para a tabela hash
 	beq $t0, 64, menu # 16 * 4
 	
 	la $a0, hash # endereco de hash
@@ -49,8 +60,8 @@ l_loop:
 	
 	addi $t0, $t0, 4
 	j l_loop
-	
-list_create:
+
+list_create: # funcao: cria uma lista vazia em hash[i]
 	# guarda $a0 e $ra na stack
 	addi $sp, $sp, -8
 	sw $a0, 4($sp) # endereco da hash[i]
@@ -64,7 +75,7 @@ list_create:
 	lw $a0, 4($sp) # recupera endereco de hash[i]
 	sw $v0, 0($a0) # guarda endereco da heap em hash[i]
 	
-	# zera o conteudo da lista
+	# zera o conteudo da lista => lista vazia
 	sw $zero, 0($v0)
 	sw $zero, 4($v0)
 	sw $zero, 8($v0)
@@ -81,10 +92,10 @@ menu: # interface de escoha de operacao
 	la $a0, str_ops
 	syscall
 	
-	# le codigo de opera√ß√£o
+	# le codigo de operacao
 	li $v0, 5
 	syscall
-	add $s0, $zero, $v0
+	add $s0, $zero, $v0 # $s0 = codigo de operacao
 	beq $s0, 1, read_numb
 	beq $s0, 2, read_numb
 	beq $s0, 3, read_numb
@@ -92,8 +103,8 @@ menu: # interface de escoha de operacao
 	beq $s0, -1, exit
 	
 	j menu
-	
-read_numb:
+
+read_numb: # le um numero, guarda em $s1
 	# imprime str_dig
 	li $v0, 4
 	la $a0, str_dig
@@ -106,49 +117,58 @@ read_numb:
 	beq $s1, -1, menu # se s1 == -1 volta para o menu
 	beq $s0, 3, search # se s1 == 3 pula para search, se s1 == 1 ou 2 continua para hash_func
 	
-hash_func:
-	# funcao hash
+hash_func: # funcao hash
 	li $t0, 16
 	div $s1, $t0
 	mfhi $t0
+	# mfhi $s2 # guarda posicao da tabela hash em $s2
 	mul $t0, $t0, 4
 	la $t1, hash
 	add $t0, $t0, $t1 # $t0 == endereco de hash(i)
 	lw $a0, 0($t0) # $a0 == conteudo de hash(i)
 	add $a1, $zero, $s1 # $a1 == numero inserido
 	beq $s0, 2, remove
-	
-insert:	
+
+insert:	# operacao: inserir
 	bltz $s1, izless
 	jal list_insert
 	
-izless:
+izless: # se n < 0, ler novamente
 	li $v0, 4
 	la $a0, str_negno
 	syscall
 	j read_numb
 	
-list_insert:
+list_insert: # funcao: insere valor em uma lista
 	# guarda $a0, $a1 e $ra na stack
 	addi $sp, $sp, -12
 	sw $a1, 8($sp) # valor inteiro
 	sw $a0, 4($sp) # endereco da lista
 	sw $ra, 0($sp)
-	
-	
+
 	# aloca um no na heap (12 bytes)
 	li $v0, 9
 	li $a0, 12
 	syscall
-	
+
 	# recupera endereco da lista
 	lw $a0, 4($sp)
-	
+
 	# se lista nao vazia
 	lw $t1, 4($a0)		# t1 = primeiro no
 	bgtz $a0, li_loop
-	
-insert_return:
+
+li_loop: # loop auxiliar de list_insert
+	beq $t1, $zero, insert_return	# if($t1 == NULL(0)), fim da lista, sai da funcao
+
+	lw $t2, 0($t1)			# $t2 = $t1->item
+	beq $a1, $t2, insert_same	# if($a1==$t2), posicao numero repetido, sai da funcao
+	blt $a1, $t2, insert_pos	# if($a1<$t2), posicao correta encontrada, sai da funcao
+	lw $t1, 8($t1) 			# $t1 = $t1->next
+
+	j li_loop
+
+insert_return: # fim de li_loop
 	# incrementa numero de elementos
 	lw $t1, 0($a0)
 	add $t1, $t1, 1
@@ -157,7 +177,7 @@ insert_return:
 	# recupera endereco do ultimo n√≥ da lista
 	lw $t0, 8($a0)
 	
-	# inicializa n√≥
+	# inicializa no
 	sw $a1, 0($v0)
 	sw $t0, 4($v0)
 	sw $zero, 8($v0)
@@ -169,7 +189,7 @@ insert_return:
 	
 	j ilist_empty_end
 	
-ilist_empty:
+ilist_empty: # se a lista estiver vazia
 	sw $v0, 4($a0) # start = no
 	
 ilist_empty_end:
@@ -179,27 +199,13 @@ ilist_empty_end:
 	syscall
 	j insert_finish
 
-li_loop:
-	beq $t1, $zero, insert_return	# if($t1 == NULL(0)), fim da lista, sai da funcao
-
-	lw $t2, 0($t1)			# $t2 = $t1->item
-	beq $a1, $t2, insert_same	# if($a1==$t2), posicao numero repetido, sai da funcao
-	blt $a1, $t2, insert_pos	# if($a1<$t2), posicao correta encontrada, sai da funcao
-	lw $t1, 8($t1) 			# $t1 = $t1->next
-	
-	j li_loop
-
-insert_same:
+insert_same: # se j· existe o n˙mero, finaliza a funcao
 	li $v0, 4
 	la $a0, str_insre
 	syscall
+	j insert_finish
 
-insert_finish:
-	lw $ra, 0($sp)
-	addi $sp, $sp, 12
-	j read_numb
-
-insert_pos:
+insert_pos: # insere um no em uma posicao, e ajusta os ponteiros
 	sw $a1, 0($v0)	# inicializa valor do no
 	lw $t3, 4($t1)	# $t3 = $t1->prev
 	beq $t3, $zero, insert_first	# if($t1 == NULL(0)), fim da lista, sai da funcao
@@ -216,7 +222,7 @@ insert_pos:
 	syscall
 	j insert_finish
 
-insert_first:
+insert_first: # insercao: caso primeira posicao
 	sw $v0, 4($a0)	# start = no
 	sw $v0, 4($t1)	# $t1->prev = no
 	sw $t1, 8($v0)	# $v0->next = $t1
@@ -228,18 +234,23 @@ insert_first:
 	la $a0, str_insok
 	syscall
 	j insert_finish
-	
-remove:
+
+insert_finish: # final da funcao de insercao
+	lw $ra, 0($sp)
+	addi $sp, $sp, 12
+	j read_numb
+
+remove: # operacao: remover
 	bltz $s1, rzless
 	jal list_remove
 	
-rzless:
-	li $v0, 1
+rzless: # se n < 0, nao remover, ler novamente
+	li $v0, 4
 	la $a0, str_remno
 	syscall
 	j read_numb
 
-list_remove:
+list_remove: # funcao: remove um valor da lista, se existente
 	# guarda $a0, $a1 e $ra na stack
 	addi $sp, $sp, -12
 	sw $a1, 8($sp) # valor inteiro
@@ -298,7 +309,7 @@ next_n_null:				# next != NULL
 	sw $t2, 4($t3)			# $t3->prev = $t2 ($t3 != null)
 	j exit_rem
 	
-exit_rem_notfound:
+exit_rem_notfound: # se valor nao for encontrado na lista
 	li $v0, 4
 	la $a0, str_remno
 	syscall	
@@ -309,15 +320,16 @@ exit_rem:		# return
 	
 	j read_numb
 	
-search:
-	add $a0, $zero, $v0	# arg1 - $a0 = inteiro buscado
-	la $a1, hash		# arg2 - $a1 = ponteiro da tabela hash
+search: # operacao: busca
+	add $a0, $zero, $v0	# arg1 = $a0 = inteiro buscado
+	la $a1, hash		# arg2 = $a1 = ponteiro da tabela hash
 	
+	bltz $a0, search_no	# se valor buscado < 0, finalizar busca (nao encontrado)
 	jal hash_search		# chama a funcao de busca int hash_search(int $a0, Hash $a1)
 
 	# $v0 possui o valor de retorno da funcao
 	
-	ble $v0, 0, search_no
+	beq $v0, -1,search_no #
 	j search_ok
 	
 search_finish:	# enter
@@ -327,19 +339,19 @@ search_finish:	# enter
 	
 	j read_numb
 
-search_ok:
+search_ok: # se n encontrado, imprimir n e finalizar funcao
 	li $v0, 1
 	add $a0, $zero, $s2
 	syscall
 	j search_finish
 	
-search_no:
+search_no: # se valor nao encontrado, imprimir -1 e finalizar funcao
 	li $v0, 1
 	add $a0, $zero, -1
 	syscall
 	j search_finish
 			
-hash_search:		# retorna $v0, se o n˙mero nao foi encontrado, $v0 = -1, caso contr·rio, $v0 = index da lista no vetor hash()
+hash_search:		# se o n˙mero nao foi encontrado, $v0 = -1, caso contr·rio, $v0 = index da lista no vetor hash()
 	addi $sp, $sp, -12
 	sw $ra, 0($sp)
 	sw $a0, 4($sp)	# inteiro buscado
@@ -501,6 +513,6 @@ print_enter:
 	# retorna
 	jr $ra
 	
-exit:
+exit: # terminar programa
 	li $v0, 10
 	syscall
