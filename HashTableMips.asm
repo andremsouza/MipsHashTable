@@ -39,7 +39,7 @@ str_remok:	.asciiz "Valor removido\n"
 str_remno:	.asciiz "Valor nao encontrado, impossivel remover\n"
 str_busok:	.asciiz "Valor encontrado"
 str_busno:	.asciiz "Valor nao encontrado"
-str_negno:	.asciiz "Valor negativo: nao inserido\n"
+str_neg:	.asciiz "Valor negativo: invalido\n"
 espaco:		.asciiz " "
 enter:		.asciiz "\n"
 tab:		.asciiz "\t"
@@ -99,7 +99,7 @@ menu: # interface de escoha de operacao
 	beq $s0, 1, read_numb
 	beq $s0, 2, read_numb
 	beq $s0, 3, read_numb
-	beq $s0, 4, print
+	beq $s0, 4, print_hash
 	beq $s0, -1, exit
 	
 	j menu
@@ -114,30 +114,50 @@ read_numb: # le um numero, guarda em $s1
 	li $v0, 5
 	syscall
 	add $s1, $zero, $v0
-	beq $s1, -1, menu # se s1 == -1 volta para o menu
-	beq $s0, 3, search # se s1 == 3 pula para search, se s1 == 1 ou 2 continua para hash_func
 	
-hash_func: # funcao hash
-	li $t0, 16
-	div $s1, $t0
-	mfhi $t0
-	# mfhi $s2 # guarda posicao da tabela hash em $s2
-	mul $t0, $t0, 4
-	la $t1, hash
-	add $t0, $t0, $t1 # $t0 == endereco de hash(i)
-	lw $a0, 0($t0) # $a0 == conteudo de hash(i)
-	add $a1, $zero, $s1 # $a1 == numero inserido
-	beq $s0, 2, remove
+	bne $s1, -1, validate_number
+	
+	# ($s1 == -1) caso de retorno para o menu
+	li $v0, 4
+	la $a0, enter
+	syscall			#imprime enter
+	j menu			#volta para o menu
+	
+validate_number:
+	bgt $s1, -1, hash_func	# se ($s1 > -1) o numero e valido, o programa continua em hash_func:
+	
+	# $s1 < -1, o numero e invalido
+	li $v0, 4
+	la $a0, str_neg
+	syscall			# imprime str_neg
+	j read_numb		# le o numero novamente
+
+	
+# hash_func:	gera os argumentos para as funcoes inserir/remover/buscar:
+#		(List *) $a0,	(int) $a1	(int) $a2
+# Descricao: encontra uma lista para inserir/remover/buscar um numero especifico e qual o indice de hash em que a lista se encontra
+hash_func: 
+	li $t0, 16		# $t0 = 16
+	div $s1, $t0		# hi = modulo = numero % 16
+	mfhi $t0		# $t0 = modulo
+
+	add $a2, $t0, $zero	# ARG: $a2 = indice da lista em hash = modulo; *OBS: usado apenas na busca
+
+	mul $t0, $t0, 4		# $t0 = modulo * 4
+	la $t1, hash		# $t1 = ponteiro para hash
+	add $t0, $t0, $t1	# $t0 = posicao de memoria que contem o endereco de uma das listas: &(hash->list[i])
+	
+	lw $a0, 0($t0)		# ARG: $a0 = endereco de uma das listas de hash, (hash->list[i])
+	add $a1, $zero, $s1	# ARG: $a1 = numero a ser inserido/removido/buscado
+	
+	beq $s0, 1, insert	# vai para a insercao
+	beq $s0, 2, remove	# vai para a remocao
+	beq $s0, 3, search	# vai para a busca
+	# continua para a insercao
 
 insert:	# operacao: inserir
-	bltz $s1, izless
 	jal list_insert
 	
-izless: # se n < 0, ler novamente
-	li $v0, 4
-	la $a0, str_negno
-	syscall
-	j read_numb
 	
 list_insert: # funcao: insere valor em uma lista
 	# guarda $a0, $a1 e $ra na stack
@@ -241,14 +261,8 @@ insert_finish: # final da funcao de insercao
 	j read_numb
 
 remove: # operacao: remover
-	bltz $s1, rzless
 	jal list_remove
 	
-rzless: # se n < 0, nao remover, ler novamente
-	li $v0, 4
-	la $a0, str_remno
-	syscall
-	j read_numb
 
 list_remove: # funcao: remove um valor da lista, se existente
 	# guarda $a0, $a1 e $ra na stack
@@ -320,199 +334,131 @@ exit_rem:		# return
 	
 	j read_numb
 	
-search: # operacao: busca
-	add $a0, $zero, $v0	# arg1 = $a0 = inteiro buscado
-	la $a1, hash		# arg2 = $a1 = ponteiro da tabela hash
 	
-	bltz $a0, search_no	# se valor buscado < 0, finalizar busca (nao encontrado)
-	jal hash_search		# chama a funcao de busca int hash_search(int $a0, Hash $a1)
+	
+search: # chegou aqui de hash_func, verifica se $a1 e valido. Se for, continua para a busca, se nao for, volta ao menu
+	# $a0 = ponteiro para a lista em que se deve buscar
+	# $a1 = inteiro a ser buscado
+	# $a2 = indice da tabela hash em que se encontra a lista $a1	
+	
+	# chama a funcao de busca
+	jal hash_search		# $v0 = int hash_search(List *$a0, int $a1, int $a2)
+	
+	
+	# imprime o resultado da busca("%d\n", int hash_search(...)):
 
-	# $v0 possui o valor de retorno da funcao
+				# valor
+	add $a0, $zero, $v0	# $a0 = $v0
+	li $v0, 1		# $v0 = 1
+	syscall			# print_int($a0)
 	
-	beq $v0, -1,search_no #
-	j search_ok
+				# enter
+	li $v0, 4		# $v0 = 4
+	la $a0, enter		# $a0 = (char *)enter
+	syscall			# print_str($a0)
 	
-search_finish:	# enter
-	li $v0, 4
-	la $a0, enter
-	syscall
-	
-	j read_numb
+	j read_numb		# volta para ler o proximo numero da busca
 
-search_ok: # se n encontrado, imprimir n e finalizar funcao
-	li $v0, 1
-	add $a0, $zero, $s2
-	syscall
-	j search_finish
-	
-search_no: # se valor nao encontrado, imprimir -1 e finalizar funcao
-	li $v0, 1
-	add $a0, $zero, -1
-	syscall
-	j search_finish
-			
-hash_search:		# se o número nao foi encontrado, $v0 = -1, caso contrário, $v0 = index da lista no vetor hash()
-	addi $sp, $sp, -12
-	sw $ra, 0($sp)
-	sw $a0, 4($sp)	# inteiro buscado
-	sw $a1, 8($sp)	# ponteiro da hash
 
-	# usa a funcao de espalhamento (inteiro % 16) para encontrar o index do vetor
-	lw $s1, 4($sp)
-	
-	li $t0, 16
-	div $s1, $t0
-	mfhi $t0
-	mfhi $s2	# salva número % 16 em $s2
-	mul $t0, $t0, 4
-	lw $t1, 8($sp)		# $t1 == endereco de hash(0)
-	add $t0, $t0, $t1	# $t0 == endereco de hash(i)
-	
-	add $a0, $zero, $s1	# arg1 - $a0 == número buscado
-	lw $a1, 0($t0)		# arg2 - $a1 == hash(i)(aponta para a lista)
-	
-	jal list_search		# chama a funcao de busca em lista int list_search(int $a0, List *$a1)
-	
-	# $v0 possui o valor de retorno da funcao($v0 = list_search())
-	beq $v0, $zero, not_found_in_hashT
-	
-found_in_hashT:
-	add $v0, $zero, $s2
-	j end_hash_search
-	
-not_found_in_hashT:
-	addi $v0, $zero, -1
-	
-end_hash_search:
-	lw $ra, 0($sp)		# recupera o endereco de retorno
-	addi $sp, $sp, 12	# pop na pilha
-	
-	jr $ra			# return $v0
 
-list_search:	# retorna $v0, caso o número for encontrado, $v0 = 1, caso contrário, $v0 = 0
-	addi $sp, $sp, -12
-	sw $ra, 0($sp)
-	sw $a0, 4($sp)		# número buscado
-	sw $a1, 8($sp)		# ponteiro para a lista
-	
-	# void *$t0;
-	lw $t0, 8($sp)		# $t0 = ponteiro para a lista
-	lw $t0, 4($t0)		# $t0 = list->first
-	
-	lw $t2, 4($sp)		# int $t2 = número buscado
-	
-while_pointer_dif_null:
-	beq $t0, $zero, not_found_in_list	# if($t0 == null) goto end_list_search
-	lw $t1, 0($t0)				# $t1 = $t0->item
-	beq $t1, $t2, found_in_list		# if($t1 == $t2) goto found_in_list
-	bgt $t1, $t2, not_found_in_list		# if($t1>$t2) goto end_list_search
-	
-	lw $t0, 8($t0)				# $t0 = $t0->next
-	
-	j while_pointer_dif_null	
-	
+# Funcao:		int hash_search(List *list, int item, int index)
+# Argumentos:		                $a0,        $a1,      $a2
+# Valor de Retorno:	$v0 = encontrou ? $a2 : -1
+# Descricao:		Recebe o ponteiro 'list' para uma lista em que sera buscado um elemento 'item' e o indice 'index' em que essa lista se encontra em hash
+# Obs:			Ja recebe o ponteiro para a lista para que esse processo so se repita uma vez em hash_func:
+# Obs2:			Nao faz pushs na pilha, ja que nao faz chamada de outras funcoes
+hash_search:
+
+	lw $t0, 4($a0)				# $t0 = hash[$a2]->list->first
+
+loop_pointer_dif_null:				# while(1) {
+	beq $t0, $zero, not_found_in_list	#	if($t0 == NULL) goto not_found_in_list
+	lw $t1, 0($t0)				#	$t1 = $t0->item
+	beq $t1, $a1, found_in_list		#	if($t1 == $a1) goto found_in_list
+	bgt $t1, $t2, not_found_in_list		#	if($t1 > $a1) goto not_found_in_list
+	lw $t0, 8($t0)				#	$t0 = $t0->next
+	j loop_pointer_dif_null			# }
+
 not_found_in_list:
-	addi $v0, $zero, 0		# $v0 = 0
-	j end_list_search
+	addi $v0, $zero, -1			# $v0 = -1
+	jr $ra					# retorna $v0 
 	
 found_in_list:
-	addi $v0, $zero, 1		# $v0 = 1
+	add $v0, $zero, $a2			# $v0 = $a2
+	jr $ra					# retorna $v0	
 	
-end_list_search:
-	lw $ra, 0($sp)			# recupera o endereco de retorno
-	addi $sp, $sp, 12		# pop na stack
-	jr $ra				# return $v0
 	
-print:	# print da Hash
-	la $t1, hash # $t1 = endereco da Tabela Hash
-	# for($a2 = 0, ($a2 * 4) < ($t2 = 64); $a2 += 4)
+print_hash:	# chama a funcao que printa uma lista, para cada lista da Tabela Hash
+			
+	la $t1, hash			# $t1 = endereco da Tabela Hash
+	li $t2, 64			# $t2 = 64
+	li $t0, 0			# $t0 = 0
 	
-	li $t2, 64	# $t2 = 64
-	li $a2, 0	# $a2 = 0
-		
-	addi $sp, $sp, -8	# push na pilha
-	sw $ra, 0($sp)
-	sw $a2, 4($sp)	# int i = $a2 = 0
+	addi $sp, $sp, -4		# push na pilha
+	sw $t0, 0($sp)			# int i = $t0 = 0
+	# $t0 e salvo na pilha devido a uma chamada de funcao dentro do loop_t, valor do registrador usado pode acabar sendo alterado
 	
-loop_a:
-	bge $a2, $t2, exit_loop_a
-	add $a1, $t1, $a2	# $a1 = ponteiro para o endereco de uma das listas
-	
-	lw $a1, 0($a1) # $a1 = endereco e uma das listas
-	lw $a2, 4($sp) # load $a2 da pilha	
-	jal print_list
-	
-	# incrementa a posicao da lista
-	addi $a2, $a2, 1 # incrementa $a2
-	sw $a2, 4($sp) # salva #a2 na pilha
-	
-	mul $a2, $a2, 4 # $a2 = $a2 * 4
+# loop_t: for(i = 0, $t2 = 64; (i * 4) < $t2; i++)
+loop_t:					# while(1)
+	lw $t0, 0($sp)			#	load $t0 da pilha
+	add $a1, $zero, $t0		#	$a1 = $t0
+	addi $t0, $t0, 1		#	$t0 += 1
+	sw $t0, 0($sp)			#	salva $t0 na pilha	
+	mul $t0, $a1, 4			#	$t0 = $a1 * 4
+	bge $t0, $t2, exit_loop_t	#	se ($t0 >= $t2) goto exit_loop_t
+	add $a0, $t1, $t0		#	$a0 = ponteiro para o endereco de uma das listas(hash[$a1])
+	lw $a0, 0($a0)			#	$a0 = endereco de uma das listas(hash[$a1]->list)
+	jal print_list			#	print_list(List *$a0, int $a1)
 
-	# realiza o loop
-	j loop_a
+	j loop_t			# }
 	
-exit_loop_a:
-	# recupera o endereco de retorno
-	lw $ra, 0($sp)
+exit_loop_t:
+	addi $sp, $sp, 4	# pop na pilha
+	j menu			# volta para o menu
 
-	# pop na pilha
-	addi $sp, $sp, 8
+# Funcao:	void print_list(List *list, int index)
+# Argumentos:	                $a0         $a1
+# Descricao:	Recebe um ponteiro para uma lista, e um inteiro que representa seu indice em hash e imprime no formato:
+#->"index\telemento1 elemento2 elemento3 ...\n"
+# Obs: Esta funcao nao chama outras, entao e desnecessario colocar os argumentos na pilha
+print_list:
+	lw $t0, 4($a0)	# $t0 = hash[index]->list->first
 	
-	#jr $ra # retorna
-	j menu
-
-print_list:	# Print de uma Lista, com ponteiro em $a1
-	# push na pilha
-	addi $sp, $sp, -12
-	sw $ra, 0($sp)
-	sw $a1, 4($sp)	# endereco da lista
-	sw $a2, 8($sp)	# index da lista no vetor
-	
-	# print do número da lista
+	# imprime o indice referente a lista em hash
 	li $v0, 1
-	lw $a0, 8($sp)
+	add $a0, $zero, $a1
 	syscall
 	
 	# print um tab
 	li $v0, 4
 	la $a0, tab
 	syscall
-		
-	lw $t0, 4($sp)	# $t0 = endereco da lista
-	lw $t0, 4($t0)	# $t0 = list->first
 	
-	
-loop_b:
-	beq $t0, $zero, print_enter 	# if($t0 == null) sai
+# loop_all_nodes: percorre todo os nos da lista
+loop_all_nodes:					# while(1) {
+	beq $t0, $zero, print_enter 	#	if($t0 == null) goto print_enter
 	
 	# print do número relativo ao nó
 	li $v0, 1
 	lw $a0, 0($t0)
-	syscall
+	syscall				#	printf("%d", $t0.item);
 			
 	# print do espaco
 	li $v0, 4
 	la $a0, espaco
-	syscall
+	syscall				#	printf(" ");
 	
-	lw $t0, 8($t0)			# $t0 = $t0->next
-	
-	j loop_b
+	lw $t0, 8($t0)			# 	$t0 = $t0->next
+	j loop_all_nodes		# }
 	
 print_enter:
 	li $v0, 4
 	la $a0, enter
-	syscall
-	
-	# recupera o endereco de retorno
-	lw $ra, 0($sp)
-	
-	# pop na pilha
-	addi $sp, $sp, 12
-	
-	# retorna
-	jr $ra
-	
+	syscall				# printf("\n");
+
+	jr $ra				# retorna
+
+
 exit: # terminar programa
 	li $v0, 10
 	syscall
