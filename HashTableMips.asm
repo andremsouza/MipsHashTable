@@ -158,7 +158,10 @@ hash_func:
 insert:	# operacao: inserir
 	jal list_insert
 	
-	
+# Funcao:		void list_insert(List *list, int item)
+# Argumentos:		                $a0,        $a1
+# Valor de Retorno:	void
+# Descricao:		Recebe o ponteiro 'list' para uma lista em que sera inserido um elemento 'item'
 list_insert: # funcao: insere valor em uma lista
 	# guarda $a0, $a1 e $ra na stack
 	addi $sp, $sp, -12
@@ -219,7 +222,7 @@ ilist_empty_end:
 	syscall
 	j insert_finish
 
-insert_same: # se já existe o número, finaliza a funcao
+insert_same: # se jï¿½ existe o nï¿½mero, finaliza a funcao
 	li $v0, 4
 	la $a0, str_insre
 	syscall
@@ -263,7 +266,10 @@ insert_finish: # final da funcao de insercao
 remove: # operacao: remover
 	jal list_remove
 	
-
+# Funcao:		void list_insert(List *list, int item)
+# Argumentos:		                $a0,        $a1
+# Valor de Retorno:	void
+# Descricao:		Recebe o ponteiro 'list' para uma lista em que sera removido um elemento 'item'
 list_remove: # funcao: remove um valor da lista, se existente
 	# guarda $a0, $a1 e $ra na stack
 	addi $sp, $sp, -12
@@ -272,8 +278,8 @@ list_remove: # funcao: remove um valor da lista, se existente
 	sw $ra, 0($sp)
 
 	# checar se a lista esta vazia 
-	lw $t1, 0($a0) # $t1 recebe o número de elementos na lista($a0)
-	beq $t1, $zero, exit_rem_notfound # se o número de elementos na lista == 0, apenas sai da funcao
+	lw $t1, 0($a0) # $t1 recebe o nï¿½mero de elementos na lista($a0)
+	beq $t1, $zero, exit_rem_notfound # se o nï¿½mero de elementos na lista == 0, apenas sai da funcao
 	
 	
 	lw $t3, 8($sp)	# $t3 = item buscado
@@ -283,19 +289,19 @@ lr_loop:
 	beq $t1, $zero, exit_rem_notfound	# if($t1 == NULL(0)), elemento nao encontrado, sai da funcao
 
 	lw $t2, 0($t1)	# $t2 = $t1->item
-	beq $t2, $t3, rem_node	# if (item atual é o buscado) rem_node
+	beq $t2, $t3, rem_node	# if (item atual ï¿½ o buscado) rem_node
 	lw $t1, 8($t1) 	# $t1 = $t1->prox
 	
 	j lr_loop
 	
 rem_node:
-	# decrementa o número de elementos na lista
+	# decrementa o nï¿½mero de elementos na lista
 	lw $t5, 4($sp)		# $t5 = ponteiro da lista
 	lw $t6, 0($t5)		# $t6 = list->n
 	addi $t6, $t6, -1	# $t6--
 	sw $t6, 0($t5)		# list->n = $t6
 	
-	# $t1 é o nó a ser removido
+	# $t1 ï¿½ o nï¿½ a ser removido
 	lw $t2, 4($t1)	# $t2 = no->prev
 	lw $t3, 8($t1)	# $t3 = no->next
 	lw $t4, 4($sp) # $t4 = endereco da lista
@@ -438,7 +444,7 @@ print_list:
 loop_all_nodes:					# while(1) {
 	beq $t0, $zero, print_enter 	#	if($t0 == null) goto print_enter
 	
-	# print do número relativo ao nó
+	# print do nï¿½mero relativo ao nï¿½
 	li $v0, 1
 	lw $a0, 0($t0)
 	syscall				#	printf("%d", $t0.item);
