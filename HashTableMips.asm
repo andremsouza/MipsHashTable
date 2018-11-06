@@ -3,7 +3,6 @@
 # Integrantes:
 #	Andre Moreira Souza - 9778985
 #	Igor Barbosa Grecia Lucio - 9778821
-#	Victor Roberti Camolesi - 9791239
 #	Vitor Trevelin Xavier da Silva - 9791285
 
 # Programa em assembly Mips que implementa uma tabela hash com listas dinamicas duplamente encadeadas.
